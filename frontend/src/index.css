@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --null-bg: #0B0F12;
+  --null-surface: #11171B;
+  --null-surface-raised: #161D22;
+  --null-border: #23303A;
+  --null-text: #E6EEF1;
+  --null-muted: #7E8C93;
+  --null-signal: #3DF2C4;
+  --null-signal-dim: #1E5C4D;
+  --null-warn: #F2B53D;
+  --null-deny: #F2543D;
+  --null-deny-dim: #3D2420;
+  --null-info: #3D9DF2;
+}
+
+body {
+  margin: 0;
+  background-color: var(--null-bg);
+  color: var(--null-text);
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Technical Console Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--null-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--null-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--null-muted);
+}
