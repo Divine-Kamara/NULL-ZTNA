@@ -1,6 +1,8 @@
 const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
 
+authenticator.options = { window: 2 }; // Allow 1-minute drift before/after current time
+
 const TOTP_ISSUER = process.env.TOTP_ISSUER || 'NULL-ZTNA';
 
 /**
