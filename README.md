@@ -113,3 +113,4 @@ Each network action is verified against a 6-step checklist:
 5.  **Policy Evaluation:** Validate requested resource policies in the `policies` table.
 6.  **Session Integrity Check:** Verify JWT signature and ensure the active session state in the database is `'active'`.
 "# NULL-ZTNA" 
+"# NULL-ZTNA" 
