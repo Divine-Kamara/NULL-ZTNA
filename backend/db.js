@@ -46,7 +46,10 @@ const seedMockAdmin = async () => {
 // Initialize DB Connection
 const initDb = async () => {
   const connectionConfig = process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL }
+    ? { 
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+      }
     : {
         host: process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.DB_PORT || '5432'),
@@ -57,7 +60,7 @@ const initDb = async () => {
 
   pool = new Pool({
     ...connectionConfig,
-    connectionTimeoutMillis: 2000 // Quick timeout to fail fast if DB isn't running
+    connectionTimeoutMillis: 10000 // Increased timeout for serverless database cold starts (like Neon)
   });
 
   try {
