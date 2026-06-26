@@ -20,7 +20,35 @@ const mockDb = {
     { policy_id: 3, role_id: 3, resource_name: 'Public Portal', access_condition: 'active_session' }
   ],
   sessions: [],
-  audit_logs: []
+  audit_logs: [],
+  student_transcripts: [
+    {
+      student_id: "STU2023001", student_name: "Amara Diallo", programme: "BSc Computer Science", academic_year: "Year 2",
+      courses: [
+        { code: "CSCI101", name: "Introduction to Programming", credits: 3, grade: "A" },
+        { code: "MATH101", name: "Calculus I", credits: 3, grade: "B" },
+        { code: "CSCI102", name: "Data Structures", credits: 3, grade: "A" },
+        { code: "ENGL101", name: "Communication Skills", credits: 2, grade: "B" }
+      ]
+    },
+    {
+      student_id: "STU2023002", student_name: "Ngozi Okafor", programme: "BSc Cybersecurity", academic_year: "Year 2",
+      courses: [
+        { code: "CSCI101", name: "Introduction to Programming", credits: 3, grade: "B" },
+        { code: "MATH101", name: "Calculus I", credits: 3, grade: "C" },
+        { code: "SECU101", name: "Network Security Fundamentals", credits: 3, grade: "A" },
+        { code: "ENGL101", name: "Communication Skills", credits: 2, grade: "A" }
+      ]
+    },
+    {
+      student_id: "STU2023003", student_name: "Kwame Mensah", programme: "BSc Information Systems", academic_year: "Year 1",
+      courses: [
+        { code: "CSCI101", name: "Introduction to Programming", credits: 3, grade: "C" },
+        { code: "MATH101", name: "Calculus I", credits: 3, grade: "B" },
+        { code: "ENGL101", name: "Communication Skills", credits: 2, grade: "B" }
+      ]
+    }
+  ]
 };
 
 // Seed Administrator in mock DB
@@ -68,8 +96,10 @@ const initDb = async () => {
     await pool.query('SELECT 1');
     console.log('\x1b[32m%s\x1b[0m', '[DATABASE] Connected to PostgreSQL successfully.');
     
-    // Seed Administrator if users table is empty in Postgres
+    // Seed Administrator and Policies if missing in Postgres
     await seedPostgresAdmin();
+    await seedPostgresPolicies();
+    await seedPostgresTranscripts();
   } catch (err) {
     console.warn('\x1b[33m%s\x1b[0m', `[DATABASE] WARNING: Connection to PostgreSQL failed (${err.message}).`);
     console.warn('\x1b[33m%s\x1b[0m', '[DATABASE] RUNNING IN IN-MEMORY MOCK DATABASE MODE.');
@@ -102,6 +132,55 @@ const seedPostgresAdmin = async () => {
     }
   } catch (err) {
     console.error('[DATABASE] Error seeding admin in PostgreSQL:', err.message);
+  }
+};
+
+const seedPostgresPolicies = async () => {
+  try {
+    const res = await pool.query('SELECT COUNT(*) FROM policies');
+    if (parseInt(res.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO policies (role_id, resource_name, access_condition) VALUES 
+        ((SELECT role_id FROM roles WHERE role_name = 'Administrator'), 'Admin Console', 'trusted_device AND active_session'),
+        ((SELECT role_id FROM roles WHERE role_name = 'Employee'), 'HR Portal', 'trusted_device AND active_session'),
+        ((SELECT role_id FROM roles WHERE role_name = 'Guest'), 'Public Portal', 'active_session')
+      `);
+      console.log('[DATABASE] Seeded default access policies in PostgreSQL.');
+    }
+  } catch (err) {
+    console.error('[DATABASE] Error seeding default policies in PostgreSQL:', err.message);
+  }
+};
+
+const seedPostgresTranscripts = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_transcripts (
+          transcript_id SERIAL PRIMARY KEY,
+          student_id VARCHAR(20) UNIQUE NOT NULL,
+          student_name VARCHAR(255) NOT NULL,
+          programme VARCHAR(255) NOT NULL,
+          academic_year VARCHAR(20) NOT NULL,
+          courses JSONB NOT NULL,
+          last_modified_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+          last_modified_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    const res = await pool.query('SELECT COUNT(*) FROM student_transcripts');
+    if (parseInt(res.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO student_transcripts (student_id, student_name, programme, academic_year, courses) VALUES
+        ('STU2023001', 'Amara Diallo', 'BSc Computer Science', 'Year 2',
+         '[{"code":"CSCI101","name":"Introduction to Programming","credits":3,"grade":"A"},{"code":"MATH101","name":"Calculus I","credits":3,"grade":"B"},{"code":"CSCI102","name":"Data Structures","credits":3,"grade":"A"},{"code":"ENGL101","name":"Communication Skills","credits":2,"grade":"B"}]'),
+        ('STU2023002', 'Ngozi Okafor', 'BSc Cybersecurity', 'Year 2',
+         '[{"code":"CSCI101","name":"Introduction to Programming","credits":3,"grade":"B"},{"code":"MATH101","name":"Calculus I","credits":3,"grade":"C"},{"code":"SECU101","name":"Network Security Fundamentals","credits":3,"grade":"A"},{"code":"ENGL101","name":"Communication Skills","credits":2,"grade":"A"}]'),
+        ('STU2023003', 'Kwame Mensah', 'BSc Information Systems', 'Year 1',
+         '[{"code":"CSCI101","name":"Introduction to Programming","credits":3,"grade":"C"},{"code":"MATH101","name":"Calculus I","credits":3,"grade":"B"},{"code":"ENGL101","name":"Communication Skills","credits":2,"grade":"B"}]')
+      `);
+      console.log('[DATABASE] Seeded student transcripts in PostgreSQL.');
+    }
+  } catch (err) {
+    console.error('[DATABASE] Error seeding student transcripts in PostgreSQL:', err.message);
   }
 };
 
@@ -533,6 +612,78 @@ const getAllAuditLogs = async (filters = {}) => {
   return res.rows;
 };
 
+const getStudentTranscript = async (studentId) => {
+  if (useMock) {
+    return mockDb.student_transcripts.find(s => s.student_id === studentId) || null;
+  }
+  const res = await pool.query('SELECT * FROM student_transcripts WHERE student_id = $1', [studentId]);
+  return res.rows[0] || null;
+};
+
+
+const getStudentTranscriptByEmail = async (email) => {
+  let studentId = "STU2023001"; // Default demo guest
+  if (email.toLowerCase().includes('okafor') || email.toLowerCase().includes('ngozi')) {
+    studentId = "STU2023002";
+  } else if (email.toLowerCase().includes('mensah') || email.toLowerCase().includes('kwame')) {
+    studentId = "STU2023003";
+  }
+  return getStudentTranscript(studentId);
+};
+
+const getAllStudentTranscripts = async () => {
+  if (useMock) {
+    return mockDb.student_transcripts;
+  }
+  const res = await pool.query('SELECT * FROM student_transcripts ORDER BY student_id');
+  return res.rows;
+};
+
+const updateStudentTranscript = async (studentId, courses, lastModifiedBy) => {
+  if (useMock) {
+    const idx = mockDb.student_transcripts.findIndex(s => s.student_id === studentId);
+    if (idx !== -1) {
+      mockDb.student_transcripts[idx].courses = courses;
+      mockDb.student_transcripts[idx].last_modified_by = lastModifiedBy;
+      mockDb.student_transcripts[idx].last_modified_at = new Date();
+      return mockDb.student_transcripts[idx];
+    }
+    return null;
+  }
+  const res = await pool.query(
+    'UPDATE student_transcripts SET courses = $1, last_modified_by = $2, last_modified_at = NOW() WHERE student_id = $3 RETURNING *',
+    [JSON.stringify(courses), lastModifiedBy, studentId]
+  );
+  return res.rows[0];
+};
+
+const getAuditLogsFiltered = async (action) => {
+  if (useMock) {
+    let logs = [...mockDb.audit_logs];
+    if (action) {
+      logs = logs.filter(l => l.activity && l.activity.toLowerCase().includes(action.toLowerCase()));
+    }
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+    return logs.map(l => {
+      const user = mockDb.users.find(u => u.user_id === l.user_id);
+      return { ...l, user_name: user ? user.full_name : 'System/Anonymous', user_email: user ? user.email : '' };
+    });
+  }
+  let queryText = `
+    SELECT l.*, u.full_name as user_name, u.email as user_email 
+    FROM audit_logs l 
+    LEFT JOIN users u ON l.user_id = u.user_id 
+  `;
+  const queryParams = [];
+  if (action) {
+    queryParams.push(`%${action}%`);
+    queryText += ` WHERE l.activity ILIKE $1 `;
+  }
+  queryText += ' ORDER BY l.timestamp DESC';
+  const res = await pool.query(queryText, queryParams);
+  return res.rows;
+};
+
 module.exports = {
   initDb,
   getRoles,
@@ -563,5 +714,10 @@ module.exports = {
   updateSessionStatus,
   createAuditLog,
   getAllAuditLogs,
+  getStudentTranscript,
+  getStudentTranscriptByEmail,
+  getAllStudentTranscripts,
+  updateStudentTranscript,
+  getAuditLogsFiltered,
   isMock: () => useMock
 };

@@ -598,6 +598,122 @@ app.get('/api/roles', requireAuth, async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// Enterprise Portal / Nexus Academy Endpoints
+// -------------------------------------------------------------
+
+// GET /api/enterprise/my-transcript (Guest/Student only)
+app.get('/api/enterprise/my-transcript', requireAuth, async (req, res) => {
+  if (req.user.role_name !== 'Guest') {
+    return res.status(403).json({ error: 'Access denied: Student access only.' });
+  }
+  try {
+    const transcript = await db.getStudentTranscriptByEmail(req.user.email);
+    if (!transcript) {
+      return res.status(404).json({ error: 'Transcript record not found.' });
+    }
+    return res.json(transcript);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/enterprise/transcripts (Employee or Administrator only)
+app.get('/api/enterprise/transcripts', requireAuth, async (req, res) => {
+  if (req.user.role_name !== 'Employee' && req.user.role_name !== 'Administrator') {
+    return res.status(403).json({ error: 'Access denied: Staff access only.' });
+  }
+  try {
+    const transcripts = await db.getAllStudentTranscripts();
+    return res.json(transcripts);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/enterprise/transcript/edit (Employee only)
+app.post('/api/enterprise/transcript/edit', requireAuth, async (req, res) => {
+  if (req.user.role_name !== 'Employee') {
+    return res.status(403).json({ error: 'Access denied: Academic Staff permissions required.' });
+  }
+  const { studentId, studentName, courseCode, courseName, oldGrade, newGrade } = req.body;
+  if (!studentId || !courseCode || !newGrade) {
+    return res.status(400).json({ error: 'studentId, courseCode and newGrade are required.' });
+  }
+  try {
+    const transcript = await db.getStudentTranscript(studentId);
+    if (!transcript) {
+      return res.status(404).json({ error: 'Transcript record not found.' });
+    }
+    
+    let courses = transcript.courses;
+    if (typeof courses === 'string') {
+      courses = JSON.parse(courses);
+    }
+    
+    const course = courses.find(c => c.code === courseCode);
+    if (!course) {
+      return res.status(404).json({ error: `Course ${courseCode} not found in student's record.` });
+    }
+    course.grade = newGrade;
+    
+    await db.updateStudentTranscript(studentId, courses, req.user.user_id);
+    
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const activity = `TRANSCRIPT_EDIT: ${req.user.full_name} changed ${studentName || studentId} ${courseCode} grade from ${oldGrade || 'N/A'} to ${newGrade}`;
+    await auditService.logActivity(req.user.user_id, activity, ipAddress);
+    
+    return res.json({ success: true, message: 'Grade updated and logged.' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/enterprise/my-audit-logs (Any authenticated user)
+app.get('/api/enterprise/my-audit-logs', requireAuth, async (req, res) => {
+  try {
+    const logs = await db.getAllAuditLogs({ user_id: req.user.user_id });
+    return res.json(logs.slice(0, 20));
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/enterprise/audit (Administrator only)
+app.get('/api/enterprise/audit', requireAuth, requireAdmin, async (req, res) => {
+  const { action } = req.query;
+  try {
+    let logs;
+    if (action) {
+      logs = await db.getAuditLogsFiltered(action);
+    } else {
+      logs = await db.getAllAuditLogs();
+    }
+    return res.json(logs);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/enterprise/access-log (Any authenticated user)
+app.post('/api/enterprise/access-log', requireAuth, async (req, res) => {
+  const { action, resource } = req.body;
+  if (!action || !resource) {
+    return res.status(400).json({ error: 'action and resource are required.' });
+  }
+  try {
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    await auditService.logActivity(
+      req.user.user_id,
+      `${action}: ${resource}`,
+      ipAddress
+    );
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Initialize database and start server
 db.initDb().then(() => {
   app.listen(PORT, () => {

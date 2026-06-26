@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import EnterpriseGuard from './components/EnterpriseGuard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -13,6 +14,10 @@ import AdminDevices from './pages/AdminDevices';
 import AdminPolicies from './pages/AdminPolicies';
 import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminSessions from './pages/AdminSessions';
+import EnterprisePortal from './pages/enterprise/EnterprisePortal';
+import EnterpriseAdmin from './pages/enterprise/EnterpriseAdmin';
+import EnterpriseEmployee from './pages/enterprise/EnterpriseEmployee';
+import EnterpriseGuest from './pages/enterprise/EnterpriseGuest';
 
 function App() {
   return (
@@ -98,6 +103,17 @@ function App() {
               </ProtectedRoute>
             } 
           />
+
+          {/* Enterprise Portal Routes — require ZTNA grant */}
+          <Route path="/enterprise" element={<EnterpriseGuard><EnterprisePortal /></EnterpriseGuard>} />
+          <Route path="/enterprise/admin" element={<EnterpriseGuard role="Administrator"><EnterpriseAdmin /></EnterpriseGuard>} />
+          <Route path="/enterprise/admin/users" element={<EnterpriseGuard role="Administrator"><EnterpriseAdmin section="users" /></EnterpriseGuard>} />
+          <Route path="/enterprise/admin/transcripts" element={<EnterpriseGuard role="Administrator"><EnterpriseAdmin section="transcripts" /></EnterpriseGuard>} />
+          <Route path="/enterprise/admin/audit" element={<EnterpriseGuard role="Administrator"><EnterpriseAdmin section="audit" /></EnterpriseGuard>} />
+          <Route path="/enterprise/admin/sessions" element={<EnterpriseGuard role="Administrator"><EnterpriseAdmin section="sessions" /></EnterpriseGuard>} />
+          <Route path="/enterprise/staff" element={<EnterpriseGuard role="Employee"><EnterpriseEmployee /></EnterpriseGuard>} />
+          <Route path="/enterprise/staff/activity" element={<EnterpriseGuard role="Employee"><EnterpriseEmployee section="activity" /></EnterpriseGuard>} />
+          <Route path="/enterprise/student" element={<EnterpriseGuard role="Guest"><EnterpriseGuest /></EnterpriseGuard>} />
 
           {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

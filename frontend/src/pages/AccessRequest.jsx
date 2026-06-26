@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -137,7 +138,9 @@ const ResourceCard = ({ resource, onRequest, loading }) => (
 
 // ------ Main Page ------
 const AccessRequest = () => {
-  const { user } = useAuth();
+  const { user, setAccessGranted, setAccessResult } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [resources, setResources] = useState([]);
   const [loadingResources, setLoadingResources] = useState(true);
   const [requestLoading, setRequestLoading] = useState(false);
@@ -145,6 +148,14 @@ const AccessRequest = () => {
   const [result, setResult] = useState(null); // { allowed, steps, reason, resource_data }
   const [visibleSteps, setVisibleSteps] = useState(0);
   const [toast, setToast] = useState(null);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // Show info toast if redirected here because enterprise access wasn't yet granted
+  useEffect(() => {
+    if (location.state?.enterprise_required) {
+      setToast({ type: 'info', message: 'Complete ZTNA verification below to enter the Nexus Academy portal.' });
+    }
+  }, [location.state]);
 
   const fetchResources = useCallback(async () => {
     setLoadingResources(true);
@@ -170,6 +181,20 @@ const AccessRequest = () => {
     steps.forEach((_, i) => {
       setTimeout(() => setVisibleSteps(v => Math.max(v, i + 1)), i * 120 + 100);
     });
+
+    // If access was granted, store in context and redirect after 2s
+    if (result.allowed) {
+      setAccessGranted(true);
+      setAccessResult(result.steps);
+      // Log the enterprise access event
+      api.post('/enterprise/access-log', { action: 'ENTERPRISE_ACCESS_GRANTED', resource: selectedResource || 'Portal' }).catch(() => {});
+      // Redirect after steps finish animating (~2s)
+      const delay = steps.length * 120 + 2200;
+      setRedirecting(true);
+      setTimeout(() => {
+        navigate('/enterprise');
+      }, delay);
+    }
   }, [result]);
 
   const handleRequest = async (resourceName) => {
@@ -338,7 +363,7 @@ const AccessRequest = () => {
                       }`}
                     >
                       {result.allowed ? (
-                        <Unlock className="w-8 h-8 text-null-signal flex-shrink-0" />
+                        <Unlock className="w-8 h-8 text-null-signal flex-shrink-0 animate-pulse" />
                       ) : (
                         <Lock className="w-8 h-8 text-null-deny flex-shrink-0" />
                       )}
@@ -350,9 +375,18 @@ const AccessRequest = () => {
                         >
                           {result.allowed ? '✓ ACCESS GRANTED' : '✗ ACCESS DENIED'}
                         </div>
-                        {result.allowed && result.resource_data && (
+                        {result.allowed && (
                           <div className="mt-2 text-xs font-sans text-null-muted bg-null-bg/50 p-2 rounded border border-null-signal/10">
-                            {result.resource_data.payload}
+                            {redirecting
+                              ? 'All 6 gates cleared. Routing you into the Nexus Academy portal...'
+                              : result.resource_data?.payload}
+                          </div>
+                        )}
+                        {result.allowed && redirecting && (
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-null-signal animate-bounce" style={{animationDelay:'0ms'}} />
+                            <div className="w-1.5 h-1.5 rounded-full bg-null-signal animate-bounce" style={{animationDelay:'150ms'}} />
+                            <div className="w-1.5 h-1.5 rounded-full bg-null-signal animate-bounce" style={{animationDelay:'300ms'}} />
                           </div>
                         )}
                         {!result.allowed && result.reason && (

@@ -64,3 +64,26 @@ INSERT INTO roles (role_name, permissions) VALUES
 ('Employee', '{"read_resources": true}'),
 ('Guest', '{"read_guest_resources": true}')
 ON CONFLICT (role_name) DO NOTHING;
+
+-- Create student transcripts table
+CREATE TABLE IF NOT EXISTS student_transcripts (
+    transcript_id SERIAL PRIMARY KEY,
+    student_id VARCHAR(20) UNIQUE NOT NULL,
+    student_name VARCHAR(255) NOT NULL,
+    programme VARCHAR(255) NOT NULL,
+    academic_year VARCHAR(20) NOT NULL,
+    courses JSONB NOT NULL,
+    last_modified_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    last_modified_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed student records
+INSERT INTO student_transcripts (student_id, student_name, programme, academic_year, courses) VALUES
+('STU2023001', 'Amara Diallo', 'BSc Computer Science', 'Year 2',
+ '[{"code":"CSCI101","name":"Introduction to Programming","credits":3,"grade":"A"},{"code":"MATH101","name":"Calculus I","credits":3,"grade":"B"},{"code":"CSCI102","name":"Data Structures","credits":3,"grade":"A"},{"code":"ENGL101","name":"Communication Skills","credits":2,"grade":"B"}]'),
+('STU2023002', 'Ngozi Okafor', 'BSc Cybersecurity', 'Year 2',
+ '[{"code":"CSCI101","name":"Introduction to Programming","credits":3,"grade":"B"},{"code":"MATH101","name":"Calculus I","credits":3,"grade":"C"},{"code":"SECU101","name":"Network Security Fundamentals","credits":3,"grade":"A"},{"code":"ENGL101","name":"Communication Skills","credits":2,"grade":"A"}]'),
+('STU2023003', 'Kwame Mensah', 'BSc Information Systems', 'Year 1',
+ '[{"code":"CSCI101","name":"Introduction to Programming","credits":3,"grade":"C"},{"code":"MATH101","name":"Calculus I","credits":3,"grade":"B"},{"code":"ENGL101","name":"Communication Skills","credits":2,"grade":"B"}]')
+ON CONFLICT (student_id) DO NOTHING;
+

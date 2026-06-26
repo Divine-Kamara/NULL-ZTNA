@@ -9,12 +9,16 @@ import {
   ScrollText, 
   LogOut,
   LayoutGrid,
-  Activity
+  Activity,
+  Building2,
+  BookOpen,
+  GraduationCap,
+  FileEdit
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, accessGranted } = useAuth();
   
   const userLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -30,6 +34,30 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { name: 'Policies', path: '/admin/policies', icon: ShieldCheck },
     { name: 'Audit Logs', path: '/admin/audit-logs', icon: ScrollText }
   ];
+
+  // Role-conditional enterprise links — only visible roles rendered
+  const enterpriseLinks = (() => {
+    if (!accessGranted || !user) return [];
+    const base = [{ name: 'Portal Home', path: '/enterprise', icon: Building2 }];
+    if (user.role_name === 'Administrator') return [
+      ...base,
+      { name: 'System Overview', path: '/enterprise/admin', icon: LayoutGrid },
+      { name: 'Staff & Students', path: '/enterprise/admin/users', icon: Users },
+      { name: 'Transcript Audit', path: '/enterprise/admin/transcripts', icon: FileEdit },
+      { name: 'Full Audit Trail', path: '/enterprise/admin/audit', icon: ScrollText },
+      { name: 'Active Sessions', path: '/enterprise/admin/sessions', icon: Activity },
+    ];
+    if (user.role_name === 'Employee') return [
+      ...base,
+      { name: 'Transcript Manager', path: '/enterprise/staff', icon: BookOpen },
+      { name: 'My Activity Log', path: '/enterprise/staff/activity', icon: ScrollText },
+    ];
+    if (user.role_name === 'Guest') return [
+      ...base,
+      { name: 'My Transcript', path: '/enterprise/student', icon: GraduationCap },
+    ];
+    return base;
+  })();
 
   const LinkItem = ({ link }) => {
     const Icon = link.icon;
@@ -89,6 +117,22 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             </div>
             <div className="flex flex-col">
               {adminLinks.map((link) => (
+                <LinkItem key={link.path} link={link} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nexus Academy Enterprise Portal */}
+        {accessGranted && enterpriseLinks.length > 0 && (
+          <div className="mt-8">
+            <div className="px-4 mb-2">
+              <span className="font-mono text-xs font-semibold uppercase tracking-wider text-null-signal opacity-80">
+                NEXUS ACADEMY PORTAL
+              </span>
+            </div>
+            <div className="flex flex-col">
+              {enterpriseLinks.map((link) => (
                 <LinkItem key={link.path} link={link} />
               ))}
             </div>

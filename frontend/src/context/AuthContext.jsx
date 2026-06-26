@@ -10,6 +10,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [deviceInfo, setDeviceInfo] = useState({ fingerprint: '', deviceName: '' });
   const [sessionId, setSessionId] = useState(null);
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [accessResult, setAccessResult] = useState(null);
 
   // Get device fingerprint on load
   useEffect(() => {
@@ -46,6 +48,8 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setSessionId(null);
+    setAccessGranted(false);
+    setAccessResult(null);
   };
 
   const login = async (email, password) => {
@@ -110,7 +114,11 @@ export const AuthProvider = ({ children }) => {
         login,
         verifyTotp,
         logout,
-        updateUserInfo
+        updateUserInfo,
+        accessGranted,
+        setAccessGranted,
+        accessResult,
+        setAccessResult
       }}
     >
       {children}
